@@ -52,6 +52,16 @@
   #plan .row small{color:#aaa;margin-left:auto;white-space:nowrap}
   #hint{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 90px);background:rgba(59,130,246,.95);color:#fff;padding:12px 14px;border-radius:12px;font-size:15px;text-align:center;display:none;z-index:5}
   #hint.show{display:block}
+  /* 我的地點 */
+  .pl{width:24px;height:24px;border-radius:50%;background:#ff2d55;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;contain:layout paint;transform:translateZ(0)}
+  .pl.sel{outline:3px solid #ffd60a}
+  .tag{display:inline-block;background:#ff2d55;color:#fff;font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;margin-bottom:6px}
+  #segPlaces button.on{background:#ff2d55;color:#fff}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:20;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal .box{background:#1c1c1e;border-radius:16px;padding:20px;width:100%;max-width:360px}
+  .modal h2{margin:0 0 6px;font-size:20px}
+  .modal p{color:#bbb;font-size:14px;margin:0 0 12px}
+  .modal input{width:100%;font-size:18px;padding:12px;border-radius:10px;border:1px solid #444;background:#111;color:#fff}
   #keywarn{position:fixed;inset:0;background:#111;color:#fff;padding:24px;z-index:9;display:none;font-size:16px;line-height:1.6}
   #keywarn code{background:#333;padding:2px 6px;border-radius:6px}
 </style>
@@ -66,6 +76,9 @@
   </div>
   <div class="seg">
     <button id="filterE" class="on" title="只看有電輔車">⚡ 只看電輔</button>
+  </div>
+  <div class="seg" id="segPlaces" style="display:none">
+    <button id="togglePlaces" title="我的 Google 地圖收藏">❤</button>
   </div>
 </div>
 <div id="status">載入中…</div>
@@ -91,6 +104,16 @@
       <button class="sec" id="cSetStart">設為借車站</button>
     </div>
   </div>
+  <div id="placeView" style="display:none">
+    <div class="tag" id="plList">清單</div>
+    <h2 id="plName">—</h2>
+    <div class="addr" id="plAddr">—</div>
+    <div class="addr" id="plNote" style="color:#ffd60a"></div>
+    <div class="btns">
+      <button id="plGo">🚲 騎 YouBike 去這裡</button>
+      <a id="plOpen" class="sec" target="_blank" rel="noopener">開 Google Maps</a>
+    </div>
+  </div>
   <div id="plan">
     <h2>騎乘路線</h2>
     <div class="row"><span class="dot" style="background:#fff"></span><span>我的位置</span><small>起點</small></div>
@@ -102,6 +125,19 @@
       <button class="sec" id="pClear">清除</button>
     </div>
     <div style="color:#888;font-size:12px;margin-top:8px">借車站＝離你最近、有⚡電輔車的站；還車站＝離目的地最近、有空位的站。</div>
+  </div>
+</div>
+
+<div id="pwd" class="modal" style="display:none">
+  <div class="box">
+    <h2>解鎖我的地點</h2>
+    <p>輸入密碼，顯示你 Google 地圖收藏的地點。密碼只存在這支手機。</p>
+    <input id="pwdIn" type="password" inputmode="text" autocomplete="off" placeholder="密碼">
+    <div class="btns" style="margin-top:12px">
+      <button id="pwdOk">解鎖</button>
+      <button class="sec" id="pwdSkip">先不要</button>
+    </div>
+    <div id="pwdErr" style="color:#ff6b6b;font-size:14px;margin-top:8px"></div>
   </div>
 </div>
 
@@ -175,6 +211,7 @@ function initMap() {
   locate(true);
   loadData();
   setInterval(loadData, REFRESH_MS);
+  initPlaces();
 }
 
 function locate(first) {
@@ -237,12 +274,13 @@ function render() {
     }
   }
   for (const [no, m] of markers) if (!keep.has(no)) { m.map = null; markers.delete(no); }
+  renderPlaces();
 }
 
 /* ========= 站點卡片 ========= */
 function showStation(s) {
   selected = s;
-  $('plan').classList.remove('show'); $('stationView').style.display = '';
+  showPanel('stationView'); selectedPlace = null; renderPlaces();
   $('cName').textContent = s.name_tw.replace(/^YouBike2\.0_/, '');
   const d = me ? `｜距你 ${fmtD(dist(me, s))}` : '';
   $('cAddr').textContent = (s.district_tw || '') + ' ' + (s.address_tw || '') + d;
@@ -251,7 +289,8 @@ function showStation(s) {
   $('card').classList.add('show');
   render();
 }
-function hideCard() { $('card').classList.remove('show'); selected = null; render(); }
+function hideCard() { $('card').classList.remove('show'); selected = null; selectedPlace = null; render(); renderPlaces(); }
+function showPanel(id) { ['stationView', 'placeView', 'plan'].forEach(x => { if (x === 'plan') $('plan').classList.toggle('show', id === 'plan'); else $(x).style.display = (x === id) ? '' : 'none'; }); }
 
 /* ========= 路線規劃 ========= */
 function setDest(ll) {
@@ -275,7 +314,7 @@ function makePlan() {
     : (nearest(me, s => eOf(s) > 0) || nearest(me, s => eOf(s) + yOf(s) > 0));
   const B = nearest(dest, s => s.empty_spaces > 0 && s.station_no !== A?.s.station_no);
   if (!A || !B) { setStatus('附近找不到合適的站'); return; }
-  $('stationView').style.display = 'none'; $('plan').classList.add('show'); $('card').classList.add('show');
+  showPanel('plan'); $('card').classList.add('show');
   $('pA').textContent = `借：${A.s.name_tw.replace(/^YouBike2\.0_/, '')}（⚡${eOf(A.s)}）`; $('pAd').textContent = `走 ${fmtD(A.d)}`;
   $('pB').textContent = `還：${B.s.name_tw.replace(/^YouBike2\.0_/, '')}（空 ${B.s.empty_spaces}）`; $('pBd').textContent = `騎 ${fmtD(dist(A.s, B.s))}`;
   $('pDest').textContent = `再走 ${fmtD(B.d)}`;
@@ -291,12 +330,104 @@ function clearPlan() {
   hideCard();
 }
 
+/* ========= 我的地點（Google 地圖收藏，加密檔 places.enc） ========= */
+const PLACES_URL = 'places.enc';
+const MAX_PLACE_PINS = 150;
+let places = [], placeMarkers = new Map(), showPlaces = false, selectedPlace = null, placesEnc = null;
+
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const shortTitle = t => (t || '').split(/\s*[|｜]\s*/)[0].trim();   // 「店名｜SEO 一長串」只留店名
+async function deriveKey(password, salt, iter) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+}
+async function decryptPlaces(key) {
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(placesEnc.iv) }, key, b64d(placesEnc.data));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function usePlaces(data) {
+  places = [];
+  for (const L of data.lists) for (const it of L.items) places.push({ ...it, list: L.name, lat: +it.lat, lng: +it.lng });
+  showPlaces = true; $('togglePlaces').classList.add('on'); $('togglePlaces').textContent = `❤ ${places.length}`;
+  renderPlaces();
+}
+async function initPlaces() {
+  try {
+    const r = await fetch(PLACES_URL, { cache: 'no-store' }); if (!r.ok) return;
+    placesEnc = await r.json();
+  } catch { return; }
+  $('segPlaces').style.display = '';
+  // 手機上存過金鑰就直接解
+  const saved = localStorage.getItem('placesKey');
+  if (saved) {
+    try {
+      const key = await crypto.subtle.importKey('raw', b64d(saved), 'AES-GCM', true, ['decrypt']);
+      usePlaces(await decryptPlaces(key)); return;
+    } catch { localStorage.removeItem('placesKey'); }
+  }
+  $('pwd').style.display = 'flex';
+}
+async function unlock() {
+  const pw = $('pwdIn').value; if (!pw) return;
+  $('pwdErr').textContent = '解鎖中…';
+  try {
+    const key = await deriveKey(pw, b64d(placesEnc.salt), placesEnc.iter);
+    const data = await decryptPlaces(key);
+    const raw = await crypto.subtle.exportKey('raw', key);
+    localStorage.setItem('placesKey', btoa(String.fromCharCode(...new Uint8Array(raw))));
+    $('pwd').style.display = 'none'; usePlaces(data);
+  } catch { $('pwdErr').textContent = '密碼不對，再試一次'; }
+}
+function renderPlaces() {
+  if (!map) return;
+  const keep = new Set();
+  const b = map.getBounds();
+  if (showPlaces && b && map.getZoom() >= 11) {
+    const c = map.getCenter().toJSON();
+    let list = places.filter(p => b.contains(p));
+    if (list.length > MAX_PLACE_PINS) { list.sort((p, q) => dist(c, p) - dist(c, q)); list = list.slice(0, MAX_PLACE_PINS); }
+    list.forEach((p, i) => {
+      const id = p.url + '|' + p.title; keep.add(id);
+      const cls = 'pl' + (selectedPlace === p ? ' sel' : '');
+      let m = placeMarkers.get(id);
+      if (!m) {
+        const el = document.createElement('div'); el.className = cls; el.textContent = '❤';
+        m = new google.maps.marker.AdvancedMarkerElement({ map, position: p, content: el, title: p.title, zIndex: 5 });
+        m.addListener('click', () => showPlace(p));
+        placeMarkers.set(id, m);
+      } else m.content.className = cls;
+    });
+  }
+  for (const [id, m] of placeMarkers) if (!keep.has(id)) { m.map = null; placeMarkers.delete(id); }
+}
+function showPlace(p) {
+  selectedPlace = p; selected = null;
+  showPanel('placeView');
+  $('plList').textContent = p.list;
+  $('plName').textContent = shortTitle(p.title) || '(未命名)';
+  $('plName').title = p.title;
+  const d = me ? `｜距你 ${fmtD(dist(me, p))}` : '';
+  $('plAddr').textContent = (p.addr || '') + d;
+  $('plNote').textContent = p.note || '';
+  $('plOpen').href = p.url;
+  $('card').classList.add('show');
+  render(); renderPlaces();
+}
+$('togglePlaces').onclick = () => {
+  if (!places.length) { $('pwd').style.display = 'flex'; return; }
+  showPlaces = !showPlaces; $('togglePlaces').classList.toggle('on', showPlaces); renderPlaces();
+};
+$('pwdOk').onclick = unlock;
+$('pwdIn').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+$('pwdSkip').onclick = () => { $('pwd').style.display = 'none'; };
+$('plGo').onclick = () => { if (selectedPlace) setDest({ lat: selectedPlace.lat, lng: selectedPlace.lng }); };
+
 /* ========= 事件 ========= */
 $('modeRent').onclick = () => { mode = 'rent'; $('modeRent').classList.add('on'); $('modeReturn').classList.remove('on'); $('filterE').style.display = ''; render(); };
 $('modeReturn').onclick = () => { mode = 'return'; $('modeReturn').classList.add('on'); $('modeRent').classList.remove('on'); $('filterE').style.display = 'none'; render(); };
 $('filterE').onclick = () => { onlyE = !onlyE; $('filterE').classList.toggle('on', onlyE); render(); };
 $('btnLoc').onclick = () => locate(false);
-$('btnDest').onclick = () => { if (planning) { $('plan').classList.add('show'); $('stationView').style.display = 'none'; $('card').classList.add('show'); } else $('hint').classList.toggle('show'); };
+$('btnDest').onclick = () => { if (planning) { showPanel('plan'); $('card').classList.add('show'); } else $('hint').classList.toggle('show'); };
 $('close').onclick = () => { if (planning && $('plan').classList.contains('show')) $('card').classList.remove('show'); else hideCard(); };
 $('cSetStart').onclick = () => { startStation = selected; if (dest) makePlan(); else { $('hint').classList.add('show'); $('card').classList.remove('show'); } };
 $('pClear').onclick = clearPlan;

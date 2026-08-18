@@ -1,0 +1,4 @@
+tools/.secrets
+tools/places_raw.json
+tools/takeout/
+tools/places_cache.json
