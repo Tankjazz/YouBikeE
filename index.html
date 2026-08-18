@@ -25,7 +25,7 @@
   .fab{width:52px;height:52px;border-radius:50%;border:0;background:#fff;color:#111;font-size:22px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
   .fab.dest{background:var(--blue);color:#fff}
   /* 站點圓點 */
-  .pin{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;border:2.5px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.45);font-family:"Helvetica Neue",Arial,sans-serif}
+  .pin{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;border:2px solid #fff;font-family:"Helvetica Neue",Arial,sans-serif;contain:layout paint;transform:translateZ(0)}
   .pin.g{background:var(--green)}.pin.y{background:var(--gray)}.pin.r{background:var(--red)}
   .pin.sel{outline:3px solid #ffd60a}
   .dpin{width:18px;height:18px;border-radius:50%;background:var(--blue);border:3px solid #fff;box-shadow:0 0 0 4px rgba(59,130,246,.35)}
@@ -115,7 +115,8 @@
 const API_KEY = 'AIzaSyAZ50vOYorG1FcmmH0Vo4BBNbCgz0aEm5A';                                  // ← 換成你的 Google Maps 金鑰
 const DATA_URL = 'https://apis.youbike.com.tw/json/station-yb2.json'; // YouBike 官方全台站點 JSON（含 eyb 電輔車數）
 const REFRESH_MS = 60_000;      // 幾秒抓一次
-const MIN_ZOOM_FOR_PINS = 13;   // 縮太遠不畫點（省效能）
+const MIN_ZOOM_FOR_PINS = 14;   // 縮太遠不畫點（省效能）
+const MAX_PINS = 120;           // 一次最多畫幾個點（離畫面中心最近的優先；太多會卡）
 const DEFAULT_CENTER = { lat: 25.0418, lng: 121.5436 };  // 台北車站附近
 
 /* ========= 狀態 ========= */
@@ -123,6 +124,7 @@ let map, me = null, meMarker = null, stations = [], markers = new Map(), selecte
 let mode = 'rent';        // rent | return
 let onlyE = true;         // 只看有電輔車
 let dest = null, destMarker = null, planning = false, startStation = null;
+let statusBase = '載入中…';
 
 /* ========= 工具 ========= */
 const $ = id => document.getElementById(id);
@@ -145,7 +147,8 @@ async function loadData() {
     stations = raw.filter(s => s.status === 1 && s.lat && s.lng)
       .map(s => ({ ...s, lat: +s.lat, lng: +s.lng }));
     const t = raw[0]?.updated_at?.slice(11, 16) || '';
-    setStatus(`全台 ${stations.length} 站｜資料時間 ${t}`);
+    statusBase = `全台 ${stations.length} 站｜資料時間 ${t}`;
+    setStatus(statusBase);
     render();
     if (selected) showStation(stations.find(s => s.station_no === selected.station_no) || selected);
   } catch (e) {
@@ -160,12 +163,14 @@ function initMap() {
     center: DEFAULT_CENTER, zoom: 15, mapId: 'DEMO_MAP_ID',
     disableDefaultUI: true, gestureHandling: 'greedy', clickableIcons: false,
   });
-  map.addListener('idle', render);
+  // 縮放/拖曳結束後才重畫，且稍微延遲，避免連續手勢時重複重畫
+  let renderTimer = null;
+  map.addListener('idle', () => { clearTimeout(renderTimer); renderTimer = setTimeout(render, 80); });
   map.addListener('click', () => { if (!planning) hideCard(); });
-  // 長按 = 設目的地
+  // 長按 = 設目的地（手指一動、地圖一縮放就取消，避免誤觸）
   let pressTimer = null;
-  map.addListener('mousedown', ev => { pressTimer = setTimeout(() => setDest(ev.latLng.toJSON()), 550); });
-  ['mouseup', 'dragstart', 'mousemove'].forEach(evn => map.addListener(evn, () => clearTimeout(pressTimer)));
+  map.addListener('mousedown', ev => { clearTimeout(pressTimer); pressTimer = setTimeout(() => setDest(ev.latLng.toJSON()), 600); });
+  ['mouseup', 'dragstart', 'mousemove', 'zoom_changed', 'bounds_changed'].forEach(evn => map.addListener(evn, () => clearTimeout(pressTimer)));
 
   locate(true);
   loadData();
@@ -201,10 +206,21 @@ function render() {
   const b = map.getBounds(); if (!b) return;
   const z = map.getZoom();
   const keep = new Set();
-  if (z >= MIN_ZOOM_FOR_PINS) {
-    for (const s of stations) {
-      if (!b.contains(s)) continue;
-      if (!visible(s) && selected?.station_no !== s.station_no) continue;
+  if (z < MIN_ZOOM_FOR_PINS) {
+    setStatus('放大地圖才會顯示站點');
+  } else {
+    // 先挑畫面內、要顯示的站；太多就只留離畫面中心最近的 MAX_PINS 個
+    const c = map.getCenter().toJSON();
+    let list = stations.filter(s => b.contains(s) && (visible(s) || selected?.station_no === s.station_no));
+    if (list.length > MAX_PINS) {
+      list.sort((p, q) => dist(c, p) - dist(c, q));
+      list = list.slice(0, MAX_PINS);
+      if (selected && !list.some(s => s.station_no === selected.station_no)) list.push(selected);
+      setStatus(`畫面內站點太多，只顯示最近的 ${MAX_PINS} 站；放大看更多`);
+    } else if ($('status').textContent.startsWith('畫面內') || $('status').textContent.startsWith('放大')) {
+      setStatus(statusBase);
+    }
+    for (const s of list) {
       keep.add(s.station_no);
       let m = markers.get(s.station_no);
       const cls = 'pin ' + pinClass(s) + (selected?.station_no === s.station_no ? ' sel' : '');
