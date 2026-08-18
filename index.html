@@ -12,7 +12,7 @@
   :root{--green:#1db954;--gray:#8a8f98;--red:#e5484d;--blue:#3b82f6;--bg:#111;--fg:#fff}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--fg)}
-  #map{position:fixed;inset:0}
+  #map{position:fixed !important;inset:0;width:100vw;height:100vh;height:100dvh}
   /* 頂端模式切換 */
   #top{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:0;right:0;display:flex;justify-content:center;gap:8px;pointer-events:none;z-index:5}
   #top>*{pointer-events:auto}
@@ -112,7 +112,7 @@
 
 <script>
 /* ========= 設定 ========= */
-const API_KEY = 'YOUR_KEY_HERE';                                  // ← 換成你的 Google Maps 金鑰
+const API_KEY = 'AIzaSyAZ50vOYorG1FcmmH0Vo4BBNbCgz0aEm5A';                                  // ← 換成你的 Google Maps 金鑰
 const DATA_URL = 'https://apis.youbike.com.tw/json/station-yb2.json'; // YouBike 官方全台站點 JSON（含 eyb 電輔車數）
 const REFRESH_MS = 60_000;      // 幾秒抓一次
 const MIN_ZOOM_FOR_PINS = 13;   // 縮太遠不畫點（省效能）
