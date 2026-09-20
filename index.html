@@ -14,16 +14,38 @@
   html,body{margin:0;height:100%;font-family:-apple-system,"PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--fg)}
   #map{position:fixed !important;inset:0;width:100vw;height:100vh;height:100dvh}
   /* 頂端模式切換 */
-  #top{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:0;right:0;display:flex;justify-content:center;gap:8px;pointer-events:none;z-index:5}
+  #top{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;z-index:7}
   #top>*{pointer-events:auto}
+  #topRow{display:flex;justify-content:center;gap:8px}
+  /* 搜尋列＋下拉結果 */
+  #searchWrap{position:relative;width:calc(100% - 24px);max-width:520px}
+  #search{display:flex;align-items:center;gap:8px;height:46px;padding:0 8px 0 14px;background:rgba(17,17,17,.92);border-radius:999px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+  #search .ico{font-size:16px;flex:none}
+  #q{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:17px;font-family:inherit;-webkit-appearance:none}
+  #q::placeholder{color:#888}
+  #qClear{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:#3a3a3c;color:#ddd;font-size:18px;line-height:1;display:none}
+  #sugg{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#1c1c1e;border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.5);max-height:55vh;overflow-y:auto;display:none}
+  #sugg.show{display:block}
+  .sg{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border:0;border-bottom:1px solid #2c2c2e;background:transparent;color:#fff;text-align:left;font-family:inherit}
+  .sg:last-child{border-bottom:0}
+  .sg .ic{flex:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;background:#3a3a3c}
+  .sg.fav .ic{background:#ff2d55}
+  .sg .tx{flex:1;min-width:0}
+  .sg .tx b,.sg .tx span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sg .tx b{font-size:16px}
+  .sg .tx span{font-size:13px;color:#aaa}
+  .sg small{flex:none;color:#aaa;font-size:13px}
+  .sgMsg{padding:12px 14px;color:#aaa;font-size:14px}
+  .srch{width:30px;height:30px;border-radius:50%;background:#ff9f0a;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 0 5px rgba(255,159,10,.3)}
   .seg{display:flex;background:rgba(17,17,17,.92);border-radius:999px;padding:4px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
   .seg button{border:0;background:transparent;color:#bbb;font-size:16px;font-weight:700;padding:8px 16px;border-radius:999px}
   .seg button.on{background:#fff;color:#111}
-  #status{position:fixed;top:calc(env(safe-area-inset-top) + 62px);left:0;right:0;text-align:center;font-size:13px;color:#ddd;text-shadow:0 1px 3px #000;pointer-events:none;z-index:5}
+  #status{position:fixed;top:calc(env(safe-area-inset-top) + 116px);left:0;right:0;text-align:center;font-size:13px;color:#ddd;text-shadow:0 1px 3px #000;pointer-events:none;z-index:5}
   /* 右下按鈕 */
   #fabs{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom) + 24px);display:flex;flex-direction:column;gap:10px;z-index:5}
   .fab{width:52px;height:52px;border-radius:50%;border:0;background:#fff;color:#111;font-size:22px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
   .fab.dest{background:var(--blue);color:#fff}
+  #btnLoc.on{color:var(--blue)}   /* 藍色＝地圖正在跟著你跑 */
   /* 站點圓點 */
   .pin{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;border:2px solid #fff;font-family:"Helvetica Neue",Arial,sans-serif;contain:layout paint;transform:translateZ(0)}
   .pin.g{background:var(--green)}.pin.y{background:var(--gray)}.pin.r{background:var(--red)}
@@ -70,15 +92,25 @@
 <div id="map"></div>
 
 <div id="top">
-  <div class="seg">
-    <button id="modeRent" class="on">借車</button>
-    <button id="modeReturn">還車</button>
+  <div id="searchWrap">
+    <div id="search">
+      <span class="ico">🔍</span>
+      <input id="q" type="text" inputmode="search" enterkeyhint="search" placeholder="搜尋要去的地方" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button id="qClear" aria-label="清除搜尋">×</button>
+    </div>
+    <div id="sugg"></div>
   </div>
-  <div class="seg">
-    <button id="filterE" class="on" title="只看有電輔車">⚡ 只看電輔</button>
-  </div>
-  <div class="seg" id="segPlaces" style="display:none">
-    <button id="togglePlaces" title="我的 Google 地圖收藏">❤</button>
+  <div id="topRow">
+    <div class="seg">
+      <button id="modeRent" class="on">借車</button>
+      <button id="modeReturn">還車</button>
+    </div>
+    <div class="seg">
+      <button id="filterE" class="on" title="只看有電輔車">⚡ 只看電輔</button>
+    </div>
+    <div class="seg" id="segPlaces" style="display:none">
+      <button id="togglePlaces" title="我的 Google 地圖收藏">❤</button>
+    </div>
   </div>
 </div>
 <div id="status">載入中…</div>
@@ -151,6 +183,7 @@
 const API_KEY = 'AIzaSyAZ50vOYorG1FcmmH0Vo4BBNbCgz0aEm5A';                                  // ← 換成你的 Google Maps 金鑰
 const DATA_URL = 'https://apis.youbike.com.tw/json/station-yb2.json'; // YouBike 官方全台站點 JSON（含 eyb 電輔車數）
 const REFRESH_MS = 60_000;      // 幾秒抓一次
+const LOCATE_MS = 30_000;       // 幾秒強制重抓一次定位（平常走動時藍點本來就會即時更新）
 const MIN_ZOOM_FOR_PINS = 14;   // 縮太遠不畫點（省效能）
 const MAX_PINS = 120;           // 一次最多畫幾個點（離畫面中心最近的優先；太多會卡）
 const DEFAULT_CENTER = { lat: 25.0418, lng: 121.5436 };  // 台北車站附近
@@ -160,6 +193,7 @@ let map, me = null, meMarker = null, stations = [], markers = new Map(), selecte
 let mode = 'rent';        // rent | return
 let onlyE = true;         // 只看有電輔車
 let dest = null, destMarker = null, planning = false, startStation = null;
+let watchId = null, following = true, planWaiting = false;   // following＝地圖跟著藍點跑（按 ◎ 開、手拖地圖關）
 let statusBase = '載入中…';
 
 /* ========= 工具 ========= */
@@ -202,30 +236,50 @@ function initMap() {
   // 縮放/拖曳結束後才重畫，且稍微延遲，避免連續手勢時重複重畫
   let renderTimer = null;
   map.addListener('idle', () => { clearTimeout(renderTimer); renderTimer = setTimeout(render, 80); });
-  map.addListener('click', () => { if (!planning) hideCard(); });
+  map.addListener('click', () => { hideSugg(); $('q').blur(); if (!planning) hideCard(); });
+  map.addListener('dragstart', () => setFollow(false));   // 手一拖地圖就不再自動拉回
   // 長按 = 設目的地（手指一動、地圖一縮放就取消，避免誤觸）
   let pressTimer = null;
   map.addListener('mousedown', ev => { clearTimeout(pressTimer); pressTimer = setTimeout(() => setDest(ev.latLng.toJSON()), 600); });
   ['mouseup', 'dragstart', 'mousemove', 'zoom_changed', 'bounds_changed'].forEach(evn => map.addListener(evn, () => clearTimeout(pressTimer)));
 
-  locate(true);
+  setFollow(true);
+  startWatch();
+  setInterval(() => { if (!document.hidden) refreshPos(); }, LOCATE_MS);
+  // 手機把 App 丟到背景再叫回來，持續定位常會被系統停掉 → 回到前景就重開
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { startWatch(); refreshPos(); } });
   loadData();
   setInterval(loadData, REFRESH_MS);
   initPlaces();
 }
 
-function locate(first) {
+/* ========= 定位（持續追蹤） ========= */
+function setFollow(on) { following = on; $('btnLoc').classList.toggle('on', on); }
+function onPos(p) {
+  me = { lat: p.coords.latitude, lng: p.coords.longitude };
+  const first = !meMarker;
+  if (first) {
+    const el = document.createElement('div');
+    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(59,130,246,.3)';
+    meMarker = new google.maps.marker.AdvancedMarkerElement({ map, position: me, content: el, zIndex: 999 });
+  } else meMarker.position = me;
+  if (following) { map.panTo(me); if (first) map.setZoom(16); }
+  if (/^(等定位|拿不到定位)/.test($('status').textContent)) setStatus(statusBase);
+  // 規劃中：位置變了就默默更新距離與導航連結，不重新縮放地圖、不把卡片彈回來
+  if (planning && dest) makePlan(!planWaiting);
+}
+function onPosErr(e) {
+  if (e.code === 1) setStatus('拿不到定位，請允許位置權限');
+  else if (!me) setStatus('等定位中…（訊號弱）');
+}
+function startWatch() {   // 走動時藍點即時跟著動
+  if (!navigator.geolocation) { setStatus('這個瀏覽器不支援定位'); return; }
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  watchId = navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+}
+function refreshPos() {   // 強制重抓一次：每 30 秒、按 ◎、App 回到前景
   if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(p => {
-    me = { lat: p.coords.latitude, lng: p.coords.longitude };
-    if (!meMarker) {
-      const el = document.createElement('div');
-      el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(59,130,246,.3)';
-      meMarker = new google.maps.marker.AdvancedMarkerElement({ map, position: me, content: el, zIndex: 999 });
-    } else meMarker.position = me;
-    map.panTo(me); if (first) map.setZoom(16);
-    if (planning && dest) makePlan();
-  }, () => setStatus('拿不到定位，請允許位置權限'), { enableHighAccuracy: true, timeout: 8000 });
+  navigator.geolocation.getCurrentPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
 }
 
 function pinClass(s) {
@@ -307,20 +361,23 @@ function nearest(from, pred) {
   for (const s of stations) { if (!pred(s)) continue; const d = dist(from, s); if (d < bd) { bd = d; best = s; } }
   return best ? { s: best, d: bd } : null;
 }
-function makePlan() {
+function makePlan(quiet = false) {   // quiet＝只更新數字與連結（定位更新時用），不動地圖、不彈卡片
   if (!dest) return;
-  if (!me) { setStatus('等定位中…'); locate(); return; }
+  if (!me) { planWaiting = true; setStatus('等定位中…'); refreshPos(); return; }
+  planWaiting = false;
   const A = startStation ? { s: startStation, d: dist(me, startStation) }
     : (nearest(me, s => eOf(s) > 0) || nearest(me, s => eOf(s) + yOf(s) > 0));
   const B = nearest(dest, s => s.empty_spaces > 0 && s.station_no !== A?.s.station_no);
-  if (!A || !B) { setStatus('附近找不到合適的站'); return; }
-  showPanel('plan'); $('card').classList.add('show');
+  if (!A || !B) { if (!quiet) setStatus('附近找不到合適的站'); return; }
+  if (!quiet) { showPanel('plan'); $('card').classList.add('show'); }
   $('pA').textContent = `借：${A.s.name_tw.replace(/^YouBike2\.0_/, '')}（⚡${eOf(A.s)}）`; $('pAd').textContent = `走 ${fmtD(A.d)}`;
   $('pB').textContent = `還：${B.s.name_tw.replace(/^YouBike2\.0_/, '')}（空 ${B.s.empty_spaces}）`; $('pBd').textContent = `騎 ${fmtD(dist(A.s, B.s))}`;
   $('pDest').textContent = `再走 ${fmtD(B.d)}`;
   $('pNav').href = `https://www.google.com/maps/dir/?api=1&origin=${me.lat},${me.lng}&destination=${dest.lat},${dest.lng}` +
     `&waypoints=${A.s.lat},${A.s.lng}|${B.s.lat},${B.s.lng}&travelmode=bicycling`;
-  // 讓地圖看得到整條路
+  if (quiet) return;
+  // 讓地圖看得到整條路（先關掉跟隨，不然下一次定位更新又把地圖拉回你身上）
+  setFollow(false);
   const bb = new google.maps.LatLngBounds(); [me, A.s, B.s, dest].forEach(p => bb.extend(p));
   map.fitBounds(bb, 60);
 }
@@ -404,6 +461,7 @@ function showPlace(p) {
   selectedPlace = p; selected = null;
   showPanel('placeView');
   $('plList').textContent = p.list;
+  $('plList').style.background = p.search ? '#ff9f0a' : '';   // 搜尋結果＝橘、收藏＝粉紅
   $('plName').textContent = shortTitle(p.title) || '(未命名)';
   $('plName').title = p.title;
   const d = me ? `｜距你 ${fmtD(dist(me, p))}` : '';
@@ -420,13 +478,125 @@ $('togglePlaces').onclick = () => {
 $('pwdOk').onclick = unlock;
 $('pwdIn').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
 $('pwdSkip').onclick = () => { $('pwd').style.display = 'none'; };
-$('plGo').onclick = () => { if (selectedPlace) setDest({ lat: selectedPlace.lat, lng: selectedPlace.lng }); };
+$('plGo').onclick = () => {
+  if (!selectedPlace) return;
+  const p = selectedPlace;
+  if (p.search) clearSearchMarker();   // 目的地藍點會接手，橘色搜尋點收掉
+  setDest({ lat: p.lat, lng: p.lng });
+};
+
+/* ========= 搜尋（我的收藏＋Google 地點） ========= */
+let sessionToken = null, searchSeq = 0, searchTimer = null, composing = false, suggItems = [];
+let searchMarker = null, searchPlace = null;
+
+function queueSearch(ms = 300) { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, ms); }
+function hideSugg() { clearTimeout(searchTimer); searchSeq++; $('sugg').classList.remove('show'); }
+function flyTo(p) { setFollow(false); map.panTo(p); if (map.getZoom() < 16) map.setZoom(16); }
+
+async function runSearch() {
+  const q = $('q').value.trim();
+  $('qClear').style.display = q ? 'block' : 'none';
+  if (!q) { suggItems = []; hideSugg(); return; }
+  const seq = ++searchSeq;
+  const near = me || map.getCenter().toJSON();
+  const items = [];
+  // 1) 我的收藏：在手機上直接比對，不花 Google 額度
+  const ql = q.toLowerCase();
+  places.filter(p => `${p.title} ${p.addr || ''} ${p.note || ''}`.toLowerCase().includes(ql))
+    .sort((a, b) => dist(near, a) - dist(near, b)).slice(0, 5)
+    .forEach(p => items.push({ kind: 'fav', main: shortTitle(p.title) || '(未命名)', sub: p.list + (p.addr ? '｜' + p.addr : ''), d: me ? dist(me, p) : null, p }));
+  if (q.length < 2) { renderSugg(items, items.length ? '' : '再多打一個字'); return; }
+  renderSugg(items, 'Google 搜尋中…');
+  // 2) Google 地點（Places API (New) Autocomplete，只搜台灣、離你近的優先）
+  try {
+    const { AutocompleteSuggestion, AutocompleteSessionToken } = await google.maps.importLibrary('places');
+    sessionToken ??= new AutocompleteSessionToken();
+    const req = { input: q, sessionToken, language: 'zh-TW', region: 'tw', includedRegionCodes: ['tw'], locationBias: { center: near, radius: 30000 } };
+    if (me) req.origin = me;
+    const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(req);
+    if (seq !== searchSeq) return;   // 又打了新字，舊結果丟掉
+    for (const s of suggestions.slice(0, 6)) {
+      const pp = s.placePrediction; if (!pp) continue;
+      items.push({ kind: 'g', main: pp.mainText?.text || pp.text.text, sub: pp.secondaryText?.text || '', d: pp.distanceMeters ?? null, pp });
+    }
+    renderSugg(items, items.length ? '' : '找不到，換個關鍵字試試');
+  } catch (e) {
+    if (seq !== searchSeq) return;
+    console.error(e);
+    renderSugg(items, 'Google 搜尋還不能用（金鑰要加開 Places API (New)）');
+  }
+}
+
+function renderSugg(items, msg) {
+  suggItems = items;
+  const box = $('sugg'); box.textContent = '';
+  for (const it of items) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sg ' + it.kind;
+    const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = it.kind === 'fav' ? '❤' : '📍';
+    const tx = document.createElement('span'); tx.className = 'tx';
+    const m = document.createElement('b'); m.textContent = it.main;
+    const s = document.createElement('span'); s.textContent = it.sub;
+    tx.append(m, s); b.append(ic, tx);
+    if (it.d != null) { const d = document.createElement('small'); d.textContent = fmtD(it.d); b.append(d); }
+    b.onclick = () => pickSugg(it);
+    box.append(b);
+  }
+  if (msg) { const d = document.createElement('div'); d.className = 'sgMsg'; d.textContent = msg; box.append(d); }
+  box.classList.toggle('show', items.length > 0 || !!msg);
+}
+
+async function pickSugg(it) {
+  hideSugg(); $('q').blur(); $('q').value = it.main; $('qClear').style.display = 'block';
+  if (it.kind === 'fav') {
+    clearSearchMarker();
+    if (!showPlaces) { showPlaces = true; $('togglePlaces').classList.add('on'); }
+    flyTo(it.p); showPlace(it.p); return;
+  }
+  try {
+    setStatus('讀取地點中…');
+    const place = it.pp.toPlace();
+    await place.fetchFields({ fields: ['location', 'formattedAddress'] });   // 只拿基本欄位（Essentials，每月 10,000 次免費）
+    sessionToken = null;   // 這一輪搜尋結束，下次換新的
+    const ll = place.location.toJSON();
+    const p = { title: it.main, addr: place.formattedAddress || it.sub, note: '', list: '搜尋結果', lat: ll.lat, lng: ll.lng, search: true,
+      url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(it.main)}&query_place_id=${encodeURIComponent(place.id)}` };
+    setStatus(statusBase);
+    showSearchMarker(p); flyTo(p); showPlace(p);
+  } catch (e) {
+    console.error(e);
+    setStatus('這個地點讀不到，換一個試試');
+  }
+}
+function showSearchMarker(p) {
+  searchPlace = p;
+  if (!searchMarker) {
+    const el = document.createElement('div'); el.className = 'srch'; el.textContent = '📍';
+    searchMarker = new google.maps.marker.AdvancedMarkerElement({ map, position: p, content: el, zIndex: 997 });
+    searchMarker.addListener('click', () => { if (searchPlace) showPlace(searchPlace); });
+  } else { searchMarker.position = p; searchMarker.map = map; }
+}
+function clearSearchMarker() { if (searchMarker) searchMarker.map = null; searchPlace = null; }
+
+$('q').addEventListener('compositionstart', () => { composing = true; });            // 注音選字中先不搜
+$('q').addEventListener('compositionend', () => { composing = false; queueSearch(); });
+$('q').addEventListener('input', () => { if (!composing) queueSearch(); });
+$('q').addEventListener('focus', () => { $('q').select(); if ($('q').value.trim()) queueSearch(0); });
+$('q').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing && suggItems.length) { e.preventDefault(); pickSugg(suggItems[0]); }
+  if (e.key === 'Escape') { hideSugg(); $('q').blur(); }
+});
+$('qClear').onclick = () => {
+  $('q').value = ''; $('qClear').style.display = 'none'; suggItems = []; hideSugg();
+  if (selectedPlace?.search) hideCard();
+  clearSearchMarker();
+  $('q').focus();
+};
 
 /* ========= 事件 ========= */
 $('modeRent').onclick = () => { mode = 'rent'; $('modeRent').classList.add('on'); $('modeReturn').classList.remove('on'); $('filterE').style.display = ''; render(); };
 $('modeReturn').onclick = () => { mode = 'return'; $('modeReturn').classList.add('on'); $('modeRent').classList.remove('on'); $('filterE').style.display = 'none'; render(); };
 $('filterE').onclick = () => { onlyE = !onlyE; $('filterE').classList.toggle('on', onlyE); render(); };
-$('btnLoc').onclick = () => locate(false);
+$('btnLoc').onclick = () => { setFollow(true); if (me) map.panTo(me); if (watchId === null) startWatch(); refreshPos(); };
 $('btnDest').onclick = () => { if (planning) { showPanel('plan'); $('card').classList.add('show'); } else $('hint').classList.toggle('show'); };
 $('close').onclick = () => { if (planning && $('plan').classList.contains('show')) $('card').classList.remove('show'); else hideCard(); };
 $('cSetStart').onclick = () => { startStation = selected; if (dest) makePlan(); else { $('hint').classList.add('show'); $('card').classList.remove('show'); } };
@@ -436,7 +606,7 @@ $('pClear').onclick = clearPlan;
 if (API_KEY === 'YOUR_KEY_HERE') $('keywarn').style.display = 'block';
 window.initMap = initMap;
 const sc = document.createElement('script');
-sc.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=marker&v=weekly&language=zh-TW&region=TW&loading=async&callback=initMap`;
+sc.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=marker,places&v=weekly&language=zh-TW&region=TW&loading=async&callback=initMap`;
 sc.async = true; document.head.appendChild(sc);
 </script>
 </body>
